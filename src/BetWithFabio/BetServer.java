@@ -1,6 +1,7 @@
 package BetWithFabio;
 
 /*
+
 Provare a ri-implementare il BetServer,
 rispettando le specifiche della traccia, senza
 impostare il timeout sul ServerSocket
@@ -24,7 +25,11 @@ import java.util.Calendar;
 
 public class BetServer {
 
+        /*
+
     static ArrayList<Scommessa> listaScommese;
+
+
 
     public BetServer(int limite, int sPort, int mPort) {
 
@@ -36,13 +41,18 @@ public class BetServer {
 
         RiceviScommessa thread1 = new RiceviScommessa(oralimite, sPort);
         thread1.start();
+        InviaEsito thread2 = new InviaEsito(oralimite, mPort);
+        thread2.start();
     }
+
+
 
     public static void main(String[] args) {
         int sPort = 8001;
         int mPort = 8002;
         int limite = 10; //secondi
         listaScommese = new ArrayList<Scommessa>();
+
         try {
             BetServer bs = new BetServer(limite, sPort, mPort);
         } catch (Exception e) {
@@ -77,11 +87,6 @@ public class BetServer {
                     BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
                     PrintWriter out = new PrintWriter(client.getOutputStream(), true);
 
-
-                    MulticastSocket multicastSocket = new MulticastSocket(8002);
-
-
-
                     if (Calendar.getInstance().getTimeInMillis() < oraLimite.getTimeInMillis()) {
 
                         String betString = in.readLine();
@@ -91,18 +96,9 @@ public class BetServer {
                         String puntata = ricevuto[1].substring(1, ricevuto[1].length() - 1);
                         String scommettitore = client.getInetAddress().getHostAddress();
                         Scommessa scommessa = new Scommessa(cavallo, puntata, scommettitore);
+                        listaScommese.add(scommessa);
                         System.out.println("Scommessa ricevuta: " + scommessa);
                         out.println("Scommessa Accettata!");
-
-                        String mess = "SEI UN COGLIONE";
-                        byte[] buf = new byte[256];
-                        buf=(mess.getBytes());
-                        InetAddress group = InetAddress.getByName("230.0.0.1");
-                        DatagramPacket datagramPacket = new DatagramPacket(buf,buf.length,group,8002);
-                        multicastSocket.send(datagramPacket);
-                        System.out.println("Ho inviato un messaggio in multicast");
-
-
                     } else {
                         System.out.println("Ora limite superata");
                         out.println("ORA LIMITE SUPERATA");
@@ -122,8 +118,50 @@ public class BetServer {
 
     private class InviaEsito extends Thread {
 
+        Calendar oraLimite;
+        int portaMulticastServer;
+        MulticastSocket ms;
 
-    }
+        public InviaEsito(Calendar oraLimite, int multicastPort) {
+            this.oraLimite = oraLimite;
+            this.portaMulticastServer = multicastPort;
+        }
 
 
-}
+        public void run() {
+            try {
+                ms = new MulticastSocket(portaMulticastServer);
+
+                while (Calendar.getInstance().getTimeInMillis() < oraLimite.getTimeInMillis()) {
+                    Thread.sleep(1000);
+                }
+
+                int numCavallo = (int) (Math.random() * (12 - 1)) + 1;
+
+                StringBuilder sb = new StringBuilder();
+
+                String mess = "Il cavallo vincente è il numero "+numCavallo;
+                for(Scommessa s:listaScommese){
+                    if(s.getCavallo().equals(cavalloVincente)){
+                        sb.append("");
+
+                    }
+                }
+
+                byte[] buf = new byte[256];
+                buf = (mess.getBytes());
+                InetAddress group = InetAddress.getByName("230.0.0.1");
+                DatagramPacket datagramPacket = new DatagramPacket(buf, buf.length, group, portaMulticastServer);
+                ms.send(datagramPacket);
+                System.out.println("Ho inviato un messaggio in multicast");
+
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        }//run
+    }//InviaEsito
+
+
+*/
+
+}//Class
