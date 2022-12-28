@@ -49,8 +49,8 @@ public class Server {
     private static String mCastAddress = "230.0.0.1";
     private static int sPortUDP = 4000;
 
-    Map<Sensore,Set<Misura>> misure;
-    Set<Sensore> sensori;
+    Map<Integer, LinkedList<Misura>> misure;
+    Map<Integer, Sensore> sensori;
 
 
     public Server() {
@@ -62,118 +62,201 @@ public class Server {
 
         //dati = Collections.synchronizedMap(new HashMap<Sensore,Long>());
 
-        this.misure = new ConcurrentHashMap<>();
-        this.sensori = Collections.synchronizedSet(new HashSet<Sensore>());
+        this.sensori = new ConcurrentHashMap<Integer, Sensore>();
+        //this.misure = Collections.synchronizedMap( new HashMap<Integer,LinkedList<Misura>> map);
+        this.misure = new ConcurrentHashMap<Integer, LinkedList<Misura>>();
+        ;
+
+
+        Sensore s = new Sensore("peso");
+        Sensore s1 = new Sensore("temperatura");
+        sensori.put(s.getId(), s);
+        sensori.put(s1.getId(), s1);
+
+        System.out.println(sensori);
+
+        Misura m1 = new Misura(s.getGrandezza(), 15);
+        Misura m2 = new Misura(s.getGrandezza(), 1482);
+
+
+        LinkedList<Misura> measure = misure.get(s);
+        if (measure == null) {
+            measure = new LinkedList<Misura>();
+        }
+
+        measure.addLast(m1);
+        misure.put(s.getId(), measure);
+
+
+        LinkedList<Misura> measure1 = misure.get(s1);
+        if (measure1 == null) {
+            measure1 = new LinkedList<Misura>();
+        }
+        measure1.addLast(m2);
+        misure.put(s1.getId(), measure1);
+
+
+        System.out.println(misure);
+
+        ServizioUno thread1 = new ServizioUno(misure, sensori);
+        thread1.start();
+        ServizioDue thread2 = new ServizioDue(misure, sensori);
+        thread2.start();
 
     }
 
-    private void attesaConnessioneClient() {
-
-        try {
-            ServerSocket server = new ServerSocket(sPort);
-            while (true) {
-                //Istanzio il thread e il socket lato client
-                Socket client = server.accept();
-                new gestoreConnessione(client,sensori,timestamps).start();
-
-
-            }
-        } catch (Exception e) {
-            System.out.println(e);
-        }
+    public static void main(String[] args) {
+        Server server = new Server();
     }
 
 
+    class ServizioUno extends Thread {
 
+        Map<Integer, LinkedList<Misura>> misure;
+        Map<Integer, Sensore> sensori;
 
-    class gestoreConnessione extends Thread {
+        public ServizioUno(Map<Integer, LinkedList<Misura>> misure, Map<Integer, Sensore> sensori) {
+            this.misure = misure;
+            this.sensori = sensori;
 
-
-        /*
-                riceve da un client l’id di un sensore e restituisce un oggetto di tipo Misura contenente la
-                grandezza misurata (una stringa: temperatura, umidità, ecc.), il valore della misura (un double) e il timestamp (un
-                long che può essere ottenuto mediante chiamata del metodo System.currentTimeMillis()) in cui essa è stata
-                rilevata.
-          */
-        private Socket client;
-        private Map<Sensore,Long> dati;
-
-        public gestoreConnessione(Socket client, Map<Integer,Sensore> sensori, ) {
-         this.client = client;
-         this.dati = dati;
         }
 
-        public void run(){
-            try{
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream());
-                PrintWriter out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()),true));
-                Sensore sensore = new Sensore();
-                long timestamp = new long;
-                int id = Integer.parseInt(in.readLine());
-                for (Sensore s: dati){
-                    if s.getId().equals(id){
-                        sensore = s;
-                        dati.
-                    }
+        public void run() {
+            try {
+                ServerSocket server = new ServerSocket(sPort);
+                System.out.println(server);
+                while (true) {
+                    //Istanzio il thread e il socket lato client
+                    Socket client = server.accept();
+
+                    //Gestione della richiesta
+                    BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                    PrintWriter out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()), true);
+
+
+                    int id = Integer.parseInt(in.readLine());
+                    Misura misura = misure.get(id).getLast();
+                    Sensore sensore = sensori.get(id);
+                    String msg = "" + sensore.getGrandezza() + " " + misura.getValore() + " " + misura.getTempo();
+                    out.println(msg);
+
+
                 }
-                out.println(sensore.getMisura(),sensore.getValore());
-
-
-
-
-            }catch(Exception e){
+            } catch (Exception e) {
                 System.out.println(e);
             }
 
+        }
+    }
+
+    class ServizioDue extends Thread {
+
+        Map<Integer, LinkedList<Misura>> misure;
+        Map<Integer, Sensore> sensori;
+
+        public ServizioDue(Map<Integer, LinkedList<Misura>> misure, Map<Integer, Sensore> sensori) {
+            this.misure = misure;
+            this.sensori = sensori;
+
+        }
+
+        public void run() {
+            try {
+                ServerSocket server = new ServerSocket(sPort1);
+                System.out.println(server);
+                while (true) {
+                    //Istanzio il thread e il socket lato client
+                    Socket client = server.accept();
+
+                    //Gestione della richiesta
+                    BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                    PrintWriter out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()), true);
+
+                    String[] msg = in.readLine().split(" ");
+
+                    int id = Integer.parseInt(msg[0]);
+                    long timestamp1 = Long.parseLong(msg[1]);
+                    long timestamp2 = Long.parseLong(msg[2]);
+
+                    double cont = 0;
+                    double media = 0;
+                    for (Misura m : misure.get(id)) {
+                        if (m.getTempo() >= timestamp1 && m.getTempo() <= timestamp2) {
+                            media += m.getValore();
+                            cont++;
+                        }
+                    }
+                    media = media / cont;
+                    String msg1 = "";
+                    msg1 = sensori.get(id).getGrandezza() + " " + media;
+                    out.println(msg1);
+
+
+                }
+            } catch (Exception e) {
+                System.out.println(e);
+            }
 
         }
 
 
-
-    }
-
+    }//servizioDue
 
 
-    class Misura{
-
+    class Misura {
 
 
         private String grandezza;
-        private int valore;
-        private long misura;
+        private double valore;
+        private long tempo;
 
-        public Misura(String grandezza, int valore, long misura){
+        public Misura(String grandezza, int valore, long tempo) {
             this.grandezza = grandezza;
             this.valore = valore;
-            this.misura = misura;
+            this.tempo = tempo;
+        }
+
+        public Misura(String grandezza, int valore) {
+            this.grandezza = grandezza;
+            this.valore = valore;
+            this.tempo = System.currentTimeMillis();
         }
 
         public String getGrandezza() {
             return grandezza;
         }
 
-        public int getValore() {
+        public double getValore() {
             return valore;
         }
 
-        public long getMisura() {
-            return misura;
+        public long getTempo() {
+            return tempo;
         }
 
         public void setGrandezza(String grandezza) {
             this.grandezza = grandezza;
         }
 
-        public void setValore(int valore) {
+        public void setValore(double valore) {
             this.valore = valore;
         }
 
-        public void setMisura(long misura) {
-            this.misura = misura;
+        public void setTempo(long tempo) {
+            this.tempo = tempo;
         }
 
 
+        @Override
+        public String toString() {
+            return "Misura{" +
+                    "grandezza='" + grandezza + '\'' +
+                    ", valore=" + valore +
+                    ", tempo=" + tempo +
+                    '}';
+        }
     }
 
 
 }
+
