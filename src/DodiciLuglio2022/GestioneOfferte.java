@@ -1,56 +1,32 @@
 package DodiciLuglio2022;
 
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.ServerSocket;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.*;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class GestioneOfferte implements Runnable{
+public class GestioneOfferte implements Runnable {
 
     private ConcurrentHashMap<Integer, Offerta> listaOfferte;
     ConcurrentHashMap<Integer, Prodotto> listaProdotti;
     private int mcastPort;
     private String mcastAddress;
+    private int range1Port;
+    private int range2Port;
 
-    public GestioneOfferte(ConcurrentHashMap<Integer, Offerta> listaOfferte, ConcurrentHashMap<Integer,
-            Prodotto> listaProdotti, int range1Port, int range2Port, String mcastAddress,int mcastPort) {
-        this.listaOfferte=listaOfferte;
-        this.listaProdotti=listaProdotti;
-        gestisciOfferte(range1Port, range2Port, mcastAddress, mcastPort);
-
+    public GestioneOfferte(ConcurrentHashMap<Integer, Offerta> listaOfferte, ConcurrentHashMap<Integer, Prodotto> listaProdotti, int range1Port, int range2Port, String mcastAddress, int mcastPort) {
+        this.listaOfferte = listaOfferte;
+        this.listaProdotti = listaProdotti;
+        this.range1Port = range1Port;
+        this.range2Port = range2Port;
+        this.mcastAddress = mcastAddress;
+        this.mcastPort = mcastPort;
     }
-
-    public void gestisciOfferte(int range1Port, int range2Port, String mcastAddress, int mcastPort){
-
-        int porta = (int) (Math.random())*(range2Port-range1Port)+range1Port;
-
-        try{
-
-            ServerSocket server = new ServerSocket(porta);
-            MulticastSocket multicastSocket = new MulticastSocket(mcastPort);
-            byte[] buf = new byte[256];
-
-            DatagramPacket packet = new DatagramPacket(buf,buf.length, InetAddress.getByName(mcastAddress),mcastPort);
-            multicastSocket.send(packet);
-            int random = (int) (Math.random()*(listaProdotti.size())+1);
-            Prodotto inOfferta = listaProdotti.get(random);
-
-            }
-
-
-            /*Ad ogni invio, il server comunica la porta TCP del server socket, l’ID del prodotto, il prezzo di vendita,
-                    la percentuale di sconto e il numero di pezzi disponibili.
-*/
-
-        }catch (Exception e){
-            System.out.println(e);
-        }
-
-    }
-
-
 
    /* Il Server dispone di un elenco interno di prodotti, ciascuno caratterizzato da un codice univoco e da un prezzo di vendita. Periodicamente,
     il server sceglie un prodotto e crea un’offerta a tempo limitato. In particolare, una volta scelto un prodotto, il Server stabilisce un numero
@@ -80,8 +56,74 @@ public class GestioneOfferte implements Runnable{
 
     @Override
     public void run() {
+        int porta = (int) (Math.random()) * (range2Port - range1Port) + range1Port;
+        System.out.println("Porta TCP Cacolata: "+ porta);
 
-        ServerSocket server = new ServerSocket();
+        try {
+
+            ServerSocket server = new ServerSocket(porta);
+            MulticastSocket multicastSocket = new MulticastSocket(mcastPort);
+            byte[] buf = new byte[256];
+
+            DatagramPacket packet = new DatagramPacket(buf, buf.length, InetAddress.getByName(mcastAddress), mcastPort);
+            ArrayList<Integer> chiavi = new ArrayList<>();
+            for(Integer pKey : listaProdotti.keySet()){
+                chiavi.add(pKey);
+            }
+
+            int prodRandom = (int) (Math.random()*chiavi.size()+1); //
+            System.out.println("Prodotto Casuale scelto: "+prodRandom);
+
+            int pzRandom = (int) ((Math.random() * (1000 - 100)) + 100);
+            int percentage = (int) ((Math.random() * (30 - 10)) + 10);
+            Prodotto inOfferta = listaProdotti.get(chiavi.get(prodRandom-1));
+            long scadenza = new Long(3000 * 60 * 60);
+            Offerta pOfferta = new Offerta(inOfferta, pzRandom, percentage, scadenza);
+            listaOfferte.put(inOfferta.getID(), pOfferta);
+
+            String merda = "" + porta + " " + inOfferta.getID() + " " + pOfferta.getSconto() + " " + pzRandom;
+            buf = merda.getBytes();
+            long dataOfferta = Calendar.getInstance().getTimeInMillis();
+            multicastSocket.send(packet);
+            System.out.println("Multicast inviato: "+merda);
+            // invio in multicast la porta TCP del server socket, l’ID del prodotto, il prezzo di vendita,
+            // la percentuale di sconto e il numero di pezzi disponibili.
+
+            while (true) {
+
+                Socket client = server.accept();
+                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                PrintWriter out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()), true);
+
+                String msg = in.readLine();
+                String[] richiesta = msg.split(" ");
+                int idProd = Integer.parseInt(richiesta[0]);
+                int qta = Integer.parseInt(richiesta[1]);
+
+                if (qta > listaOfferte.get(inOfferta).getQuantita() || Calendar.getInstance().getTimeInMillis() > dataOfferta + scadenza) {
+                    int idOrdine = (int) ((Math.random()) * 1000);
+                    out.println(idOrdine + idProd + " " + (inOfferta.getPrezzo() * qta));
+                } else {
+                    int idOrdine = (int) ((Math.random()) * 1000);
+                    out.println(idOrdine + idProd + " " + (listaOfferte.get(idProd).getPrezzoFinale() * qta));
+                }
+
+
+                    /*Riceve sulla porta TCP dell’offerta un oggetto Richiesta contenente la richiesta di acquisto di un prodotto da parte di un client.
+                            La richiesta conterrà l’ID del prodotto e il numero di pezzi da acquistate. Ricevuta la richiesta, il server verificherà lo
+                            stato dell’offerta
+                            (es. offerta attiva/scaduta, numero di pezzi in offerta ancora disponibili) e, successivamente,
+                            invierà al client l’ID dell’ordine e l’importo totale da pagare.
+                    */
+            }
+
+        } catch (
+                Exception e) {
+            System.out.println(e);
+        }
+
+
+        //ServerSocket server = new ServerSocket();
 
     }
 

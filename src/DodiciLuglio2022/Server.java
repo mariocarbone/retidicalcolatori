@@ -15,18 +15,21 @@ public class Server {
     private int mcastPort = 3000;
 
 
-    public Server(String hostname, Prodotto[] prodotti){
+    public Server(String hostname) {
 
-        this.listaOfferte = new ConcurrentHashMap<Integer,Offerta>();
-        this.listaProdotti = new ConcurrentHashMap<Integer,Prodotto>();
-        for (Prodotto prodotto:prodotti){
-            listaProdotti.put(prodotto.getID(),prodotto);
+        this.listaOfferte = new ConcurrentHashMap<Integer, Offerta>();
+        this.listaProdotti = new ConcurrentHashMap<Integer, Prodotto>();
+        for (int i = 0; i < 10; i++) {
+            Prodotto prodotto = new Prodotto(i * 599);
+            listaProdotti.put(prodotto.getID(), prodotto);
         }
+
+
         gestioneOfferte();
 
     }
 
-    void gestioneOfferte(){
+    void gestioneOfferte() {
 
         /*- Crea un’offerta a tempo limitato e stabilisce una porta casuale nel range [6000-7000] sulla quale apre un server socket
         temporaneo per gestire le richieste di acquisto da parte dei client.
@@ -36,7 +39,7 @@ public class Server {
                 la percentuale di sconto e il numero di pezzi disponibili. Per ogni offerta attiva, inoltre, verifica ogni 30 minuti se ci sono
         ancora pezzi disponibili ed, eventualmente, invia un nuovo messaggio di avviso sul gruppo broadcast.*/
 
-        GestioneOfferte gesOfferte = new GestioneOfferte(listaOfferte,listaProdotti, range1Port, range2Port, mCastAddress, mcastPort);
+        GestioneOfferte gesOfferte = new GestioneOfferte(listaOfferte, listaProdotti, range1Port, range2Port, mCastAddress, mcastPort);
         gesOfferte.run();
 
     }
@@ -69,10 +72,10 @@ public class Server {
 
      */
 
-    public static void main (String[]args){
+    public static void main(String[] args) {
 
 
-        Server server = new Server("offerte.unical.it", Prodotto[] prodotti);
+        Server server = new Server("offerte.unical.it");
 
 
     }
