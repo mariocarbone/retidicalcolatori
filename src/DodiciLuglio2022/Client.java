@@ -17,14 +17,16 @@ public class Client {
 
     public static void main (String[]args){
 
-        byte[] buf = new byte[256];
+
         try{
         MulticastSocket ms = new MulticastSocket(3000);
 
-        ms.joinGroup(InetAddress.getByName("230.0.0.1"));
+        ms.joinGroup(InetAddress.getByName("230.0.0.1"));// da rivedere
+            byte[] buf = new byte[256];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             ms.receive(packet);
             String shit = new String(packet.getData());
+            System.out.println(shit);
             String[] info = shit.split(" ");
             int porta = Integer.parseInt(info[0]);
             int prodId = Integer.parseInt(info[1]);

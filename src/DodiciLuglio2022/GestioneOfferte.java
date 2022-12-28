@@ -81,7 +81,7 @@ public class GestioneOfferte implements Runnable {
             Offerta pOfferta = new Offerta(inOfferta, pzRandom, percentage, scadenza);
             listaOfferte.put(inOfferta.getID(), pOfferta);
 
-            String merda = "" + porta + " " + inOfferta.getID() + " " + pOfferta.getSconto() + " " + pzRandom;
+            String merda = "" + porta + " " + inOfferta.getID() + " " + inOfferta.getPrezzo()+ " " + pOfferta.getSconto() + " " + pzRandom;
             buf = merda.getBytes();
             long dataOfferta = Calendar.getInstance().getTimeInMillis();
             multicastSocket.send(packet);
