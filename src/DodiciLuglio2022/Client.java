@@ -20,12 +20,12 @@ public class Client {
 
         try{
         MulticastSocket ms = new MulticastSocket(3000);
-
         ms.joinGroup(InetAddress.getByName("230.0.0.1"));// da rivedere
             byte[] buf = new byte[256];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             ms.receive(packet);
             String shit = new String(packet.getData());
+            shit = shit.trim();
             System.out.println(shit);
             String[] info = shit.split(" ");
             int porta = Integer.parseInt(info[0]);

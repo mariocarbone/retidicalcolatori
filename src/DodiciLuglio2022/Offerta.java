@@ -5,13 +5,13 @@ public class Offerta {
     private Prodotto prodotto;
     private int quantita;
     private int sconto;
-    private long durata;
+    private long scadenza;
 
-    public Offerta(Prodotto prodotto, int quantita, int sconto, long durata){
+    public Offerta(Prodotto prodotto, int quantita, int sconto, long scadenza){
         this.prodotto = prodotto;
         this.quantita=quantita;
         this.sconto=sconto;
-        this.durata=durata;
+        this.scadenza=scadenza;
     }
 
 
@@ -43,12 +43,12 @@ public class Offerta {
         this.sconto = sconto;
     }
 
-    public long getDurata() {
-        return durata;
+    public long getScadenza() {
+        return scadenza;
     }
 
-    public void setDurata(long durata) {
-        this.durata = durata;
+    public void setScadenza(long scadenza) {
+        this.scadenza = scadenza;
     }
 
 

@@ -1,8 +1,14 @@
 package DodiciLuglio2022;
 
+import java.net.DatagramPacket;
+import java.net.InetAddress;
+import java.net.MulticastSocket;
 import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Server {
 
@@ -14,70 +20,86 @@ public class Server {
     private int tcpPort = 5000;
     private int mcastPort = 3000;
 
-
     public Server(String hostname) {
-
         this.listaOfferte = new ConcurrentHashMap<Integer, Offerta>();
         this.listaProdotti = new ConcurrentHashMap<Integer, Prodotto>();
-        for (int i = 0; i < 10; i++) {
+        creaProdotti(10);
+        creaOfferte(5);
+
+
+    }
+
+    void creaProdotti(int nProdotti) {
+        for (int i = 0; i < nProdotti; i++) {
             Prodotto prodotto = new Prodotto(i * 599);
             listaProdotti.put(prodotto.getID(), prodotto);
         }
+    }
+
+    void creaOfferte(int nOfferte){
+
+        ArrayList<Integer> chiavi = new ArrayList<>();
+        for (Integer pKey : listaProdotti.keySet()) {
+            chiavi.add(pKey);
+        }
+
+        for (int i = 0; i < nOfferte; i++) {
+            int prodRandom = (int) (Math.random() * chiavi.size() + 1); //random nelle chiavi
+            gestisciOfferta(chiavi.get(prodRandom - 1));
+            chiavi.remove(prodRandom);
+        }
+    }
+
+    void gestisciOfferta(int idProd) {
+
+        System.out.println("Prodotto Casuale Scelto: " + idProd);
+
+        int pzRandom = (int) ((Math.random() * (1000 - 100)) + 100); //pezzi random in offerta
+        int percentage = (int) ((Math.random() * (30 - 10)) + 10); //percentuale random di sconto
+        long dataOfferta = Calendar.getInstance().getTimeInMillis();
+        long scadenza = dataOfferta + new Long(3000 * 60 * 60); //scadenza offerta 3h
+
+        Offerta pOfferta = new Offerta(listaProdotti.get(idProd), pzRandom, percentage, scadenza);
+        listaOfferte.put(idProd, pOfferta);
+
+        int porta =  ThreadLocalRandom.current().nextInt(range1Port,range2Port);
+
+        //int porta = (int) (Math.random()) * (range2Port - range1Port) + range1Port;
+
+        System.out.println("Creazione Offerte: Porta TCP Cacolata: " + porta);
+
+        try {
+
+            MulticastSocket multicastSocket = new MulticastSocket(mcastPort);
+
+            String msg = "" + porta + " " + listaProdotti.get(idProd).getID() + " " + listaProdotti.get(idProd).getPrezzo() + " " + pOfferta.getSconto() + " " + pzRandom;
+
+            byte[] buf = new byte[256];
+            buf = msg.getBytes();
+            DatagramPacket packet = new DatagramPacket(buf, buf.length, InetAddress.getByName(mCastAddress), mcastPort);
+            multicastSocket.send(packet);
+            System.out.println("Multicast inviato: " + msg);
+
+            ServerSocket socketOfferta = new ServerSocket(porta);
+            System.out.println(socketOfferta);
+
+            GestioneOfferte gesOfferte = new GestioneOfferte(listaProdotti.get(idProd).getID(), socketOfferta, listaOfferte, listaProdotti);//avvio il thread
+            gesOfferte.run();
+            System.out.println("Ho avviato il Thread");
 
 
-        gestioneOfferte();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
 
     }
 
-    void gestioneOfferte() {
-
-        /*- Crea un’offerta a tempo limitato e stabilisce una porta casuale nel range [6000-7000] sulla quale apre un server socket
-        temporaneo per gestire le richieste di acquisto da parte dei client.
-
-                - Comunica la nuova offerta a tutti i client mediante invio sul gruppo broadcast caratterizzato dall’indirizzo 230.0.0.1 e
-        dalla porta 3000. Ad ogni invio, il server comunica la porta TCP del server socket, l’ID del prodotto, il prezzo di vendita,
-                la percentuale di sconto e il numero di pezzi disponibili. Per ogni offerta attiva, inoltre, verifica ogni 30 minuti se ci sono
-        ancora pezzi disponibili ed, eventualmente, invia un nuovo messaggio di avviso sul gruppo broadcast.*/
-
-        GestioneOfferte gesOfferte = new GestioneOfferte(listaOfferte, listaProdotti, range1Port, range2Port, mCastAddress, mcastPort);
-        gesOfferte.run();
-
-    }
-
-
-    /*
-
-    Si vuole realizzare un’applicazione di rete in Java per gestire delle vendite online con offerte a tempo limitato.
-    Il sistema è composto da un Server e da N Client.
-
-    Il Server svolge il ruolo di gestore delle offerte e delle richieste di acquisto. In particolare:
-
-
-
-    -Riceve sulla porta TCP dell’offerta un oggetto Richiesta contenente la richiesta di acquisto di un prodotto da parte di un client.
-    La richiesta conterrà l’ID del prodotto e il numero di pezzi da acquistate. Ricevuta la richiesta, il server verificherà lo stato dell’offerta
-    (es. offerta attiva/scaduta, numero di pezzi in offerta ancora disponibili) e, successivamente, invierà al client l’ID dell’ordine e l’importo totale da pagare.
-
-    Per i pezzi sui quali non è applicabile l’offerta (perché scaduta o senza più pezzi disponibili), verrà considerato il prezzo originale di vendita.
-    Una volta completato un acquisto, il cliente ha 7 giorni di tempo per effettuare una richiesta di reso mediante l’invio di una richiesta sulla
-    porta TCP 5000 contenente l’ID dell’ordine. Se la richiesta di reso è effettuata entro il tempo consentito, il server ritornerà al client,
-    sulla stessa connessione socket, l’importo rimborsato, che sarà pari all’ammontare dell’ordine; altrimenti restituirà zero.
-
-    Il server dovrà essere in grado gestire più offerte in parallelo.
-
-    Si realizzino le classi Server e Client che implementino le funzionalità sopra descritte. Inoltre, si realizzino due main:
-    1) il primo main crea e avvia il Server (con hostname offerte.unical.it);
-    2) il secondo main crea e avvia un Client che attende l’arrivo di offerte, invia la propria richiesta di acquisto,
-    ne attende l’esito ed invia, eventualmente, una richiesta di reso.
-
-     */
 
     public static void main(String[] args) {
 
-
         Server server = new Server("offerte.unical.it");
-
 
     }
 
 }
+
